@@ -4,6 +4,7 @@ import { Spotlight } from "./Spotlight";
 
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async () => ({
+    ok: true,
     json: async () => ({ cards: [{ id: "1", name: "Synthy", icon: "🎹", blurb: "make noise" }] }),
   })));
 });

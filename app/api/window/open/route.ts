@@ -8,6 +8,11 @@ export async function POST(req: Request) {
   if (!appName || typeof appName !== "string") {
     return NextResponse.json({ error: "appName required" }, { status: 400 });
   }
-  const { windowId, html } = await openWindow(appName);
-  return NextResponse.json({ windowId, html });
+  try {
+    const { windowId, html } = await openWindow(appName);
+    return NextResponse.json({ windowId, html });
+  } catch (e) {
+    console.error("open failed", e);
+    return NextResponse.json({ error: "open failed" }, { status: 502 });
+  }
 }

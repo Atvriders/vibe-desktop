@@ -22,5 +22,4 @@ export interface WindowSession {
   id: string;
   appName: string;
   messages: Anthropic.MessageParam[];
-  clickCount: number;
 }

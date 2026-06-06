@@ -4,6 +4,8 @@ import { WINDOW_SYSTEM, SEARCH_SYSTEM, APPLY_DOM_PATCH_TOOL, APP_CARDS_TOOL } fr
 import { newSession, getSession } from "./sessions";
 import type { AppCard, RawOp } from "./types";
 
+export class UnknownWindowError extends Error {}
+
 const NO_THINK = { type: "disabled" } as const;
 
 export async function searchApps(query: string): Promise<AppCard[]> {
@@ -42,7 +44,7 @@ export async function patchWindow(
   domSnapshot?: string,
 ): Promise<{ ops: RawOp[]; cacheReadTokens: number }> {
   const session = getSession(windowId);
-  if (!session) throw new Error(`unknown window: ${windowId}`);
+  if (!session) throw new UnknownWindowError(`unknown window: ${windowId}`);
 
   if (domSnapshot) {
     session.messages.push({
@@ -54,8 +56,6 @@ export async function patchWindow(
     role: "user",
     content: `The user clicked the element with id "${elementId}". Update the app state and return the DOM patch.`,
   });
-  session.clickCount += 1;
-
   const res = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 1024,

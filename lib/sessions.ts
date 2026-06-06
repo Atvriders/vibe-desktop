@@ -6,7 +6,7 @@ const store: Map<string, WindowSession> = g.__vibeSessions ?? new Map();
 g.__vibeSessions = store;
 
 export function newSession(appName: string): WindowSession {
-  const session: WindowSession = { id: crypto.randomUUID(), appName, messages: [], clickCount: 0 };
+  const session: WindowSession = { id: crypto.randomUUID(), appName, messages: [] };
   store.set(session.id, session);
   return session;
 }

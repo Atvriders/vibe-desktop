@@ -8,6 +8,11 @@ export async function POST(req: Request) {
   if (!query || typeof query !== "string") {
     return NextResponse.json({ error: "query required" }, { status: 400 });
   }
-  const cards = await searchApps(query);
-  return NextResponse.json({ cards });
+  try {
+    const cards = await searchApps(query);
+    return NextResponse.json({ cards });
+  } catch (e) {
+    console.error("search failed", e);
+    return NextResponse.json({ error: "search failed" }, { status: 502 });
+  }
 }

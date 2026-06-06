@@ -35,6 +35,8 @@ never sent to the browser. Generated app HTML runs in an iframe **without**
 - `lib/` — the engine, prompt-cache helpers, session store, op applier, and sanitizer.
 - `components/` — the Win11-glass shell: Spotlight, WindowFrame, Taskbar.
 
+> Prompt caching only engages once a window's system prompt + initial HTML exceeds Haiku's ~2048-token minimum cacheable prefix, so `cache_read_input_tokens` may be 0 on very small apps.
+
 ## Tests
 
 ```bash

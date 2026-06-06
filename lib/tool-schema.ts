@@ -14,6 +14,7 @@ export const SEARCH_SYSTEM =
 
 export const APPLY_DOM_PATCH_TOOL: Anthropic.Tool = {
   name: "apply_dom_patch",
+  strict: true,
   description:
     "Return the minimal set of DOM edits that result from the user's click. Target elements ONLY by their existing id. To add new elements use insertHTML and give every new element a unique id.",
   input_schema: {
@@ -45,6 +46,7 @@ export const APPLY_DOM_PATCH_TOOL: Anthropic.Tool = {
 
 export const APP_CARDS_TOOL: Anthropic.Tool = {
   name: "app_results",
+  strict: true,
   description: "Return the list of fabricated apps that match the user's search.",
   input_schema: {
     type: "object",

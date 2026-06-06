@@ -6,11 +6,13 @@ export function Spotlight({ onOpen, onClose }: { onOpen: (card: AppCard) => void
   const [query, setQuery] = useState("");
   const [cards, setCards] = useState<AppCard[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
 
   async function search(e: React.FormEvent) {
     e.preventDefault();
     if (!query.trim()) return;
     setLoading(true);
+    setError(false);
     setCards([]);
     try {
       const r = await fetch("/api/search", {
@@ -18,6 +20,11 @@ export function Spotlight({ onOpen, onClose }: { onOpen: (card: AppCard) => void
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ query }),
       });
+      if (!r.ok) {
+        setError(true);
+        setCards([]);
+        return;
+      }
       const data = await r.json();
       setCards(data.cards ?? []);
     } finally {
@@ -38,6 +45,7 @@ export function Spotlight({ onOpen, onClose }: { onOpen: (card: AppCard) => void
           />
         </form>
         {loading && <p className="mt-3 text-sm text-white/80">Conjuring apps…</p>}
+        {error && <p className="mt-3 text-sm text-red-100">Couldn't reach the model — check your ANTHROPIC_API_KEY.</p>}
         {cards.length > 0 && (
           <div className="mt-3 grid grid-cols-2 gap-2">
             {cards.map((c) => (

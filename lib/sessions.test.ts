@@ -7,7 +7,6 @@ describe("session store", () => {
     expect(s.id).toBeTruthy();
     expect(s.appName).toBe("Calculator");
     expect(s.messages).toEqual([]);
-    expect(s.clickCount).toBe(0);
     expect(getSession(s.id)).toBe(s);
     deleteSession(s.id);
     expect(getSession(s.id)).toBeUndefined();

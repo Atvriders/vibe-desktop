@@ -25,6 +25,7 @@ export function WindowFrame({
 }) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const clicks = useRef(0);
+  const needsResync = useRef(false);
 
   // Parent-attached capture listener: fires even though the iframe has no
   // allow-scripts. Resolves the clicked element's id and asks for a patch.
@@ -34,10 +35,11 @@ export function WindowFrame({
     doc.addEventListener(
       "click",
       async (e) => {
+        onFocus(win.id);
         const target = (e.target as Element | null)?.closest?.("[id]") as Element | null;
         if (!target) return;
         clicks.current += 1;
-        const sendSnapshot = clicks.current % 10 === 0; // periodic drift resync
+        const sendSnapshot = clicks.current % 10 === 0 || needsResync.current; // periodic drift resync
         try {
           const r = await fetch("/api/window/patch", {
             method: "POST",
@@ -49,7 +51,8 @@ export function WindowFrame({
             }),
           });
           const data = await r.json();
-          if (data.ops) applyOps(doc, data.ops);
+          const result = data.ops ? applyOps(doc, data.ops) : { applied: [], dropped: [] };
+          needsResync.current = result.dropped.length > 0;
           if (typeof data.cacheReadTokens === "number") {
             console.log(`[${win.title}] cache_read_input_tokens =`, data.cacheReadTokens);
           }

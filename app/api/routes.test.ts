@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const searchApps = vi.hoisted(() => vi.fn());
 const openWindow = vi.hoisted(() => vi.fn());
 const patchWindow = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/engine", () => ({ searchApps, openWindow, patchWindow }));
+const UnknownWindowError = vi.hoisted(() => class UnknownWindowError extends Error {});
+vi.mock("@/lib/engine", () => ({ searchApps, openWindow, patchWindow, UnknownWindowError }));
 
 import { POST as searchPOST } from "./search/route";
 import { POST as openPOST } from "./window/open/route";
@@ -39,7 +40,7 @@ describe("api routes", () => {
   });
 
   it("patch 404s on unknown window", async () => {
-    patchWindow.mockRejectedValue(new Error("unknown window"));
+    patchWindow.mockRejectedValue(new UnknownWindowError("unknown window"));
     const res = await patchPOST(post({ windowId: "ghost", elementId: "b" }));
     expect(res.status).toBe(404);
   });

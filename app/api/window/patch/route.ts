@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { patchWindow } from "@/lib/engine";
+import { patchWindow, UnknownWindowError } from "@/lib/engine";
 
 export const runtime = "nodejs";
 
@@ -11,7 +11,11 @@ export async function POST(req: Request) {
   try {
     const { ops, cacheReadTokens } = await patchWindow(windowId, elementId, domSnapshot);
     return NextResponse.json({ ops, cacheReadTokens });
-  } catch {
-    return NextResponse.json({ error: "unknown window" }, { status: 404 });
+  } catch (e) {
+    if (e instanceof UnknownWindowError) {
+      return NextResponse.json({ error: "unknown window" }, { status: 404 });
+    }
+    console.error("patch failed", e);
+    return NextResponse.json({ error: "patch failed" }, { status: 502 });
   }
 }
