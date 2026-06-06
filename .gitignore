@@ -10,6 +10,7 @@ next-env.d.ts
 *.tsbuildinfo
 
 # env
+.env
 .env*.local
 
 # brainstorm companion (mockups + server state)
