@@ -1,7 +1,6 @@
 services:
   vibe-desktop:
-    image: ghcr.io/atvriders/vibe-desktop:latest
-    pull_policy: always
+    build: .
     ports:
       - "3000:3000"
     environment:

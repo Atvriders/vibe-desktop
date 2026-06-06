@@ -16,12 +16,25 @@ npm install
 npm run dev          # http://localhost:3000
 ```
 
-## Run with Docker Compose
+## Run with Docker Compose (prebuilt GHCR image)
+
+`docker-compose.yml` pulls the image that GitHub Actions publishes on every push
+to `master` (`ghcr.io/atvriders/vibe-desktop:latest`):
 
 ```bash
-echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env   # docker compose reads .env
-docker compose up --build                    # http://localhost:3000
+echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env   # compose reads .env
+docker compose up                            # pulls the image -> http://localhost:3000
 ```
+
+To build the image locally instead of pulling it:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+> The published image only exists after the **Build and publish Docker image**
+> workflow has run on `master` at least once (it runs automatically on merge, or
+> manually via the Actions tab -> Run workflow). The GHCR package is public.
 
 Your Anthropic API key is only ever read server-side (Next.js API routes); it is
 never sent to the browser. Generated app HTML runs in an iframe **without**
