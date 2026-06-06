@@ -44,7 +44,7 @@ export function Spotlight({ onOpen, onClose }: { onOpen: (card: AppCard) => void
             className="w-full rounded-xl px-4 py-3 text-slate-800 bg-white/90 shadow-2xl outline-none"
           />
         </form>
-        {loading && <p className="mt-3 text-sm text-white/80">Conjuring apps…</p>}
+        {loading && <p className="mt-3 text-sm text-white/80">Hallucinating apps…</p>}
         {error && <p className="mt-3 text-sm text-red-100">Couldn't reach the model — check your ANTHROPIC_API_KEY.</p>}
         {cards.length > 0 && (
           <div className="mt-3 grid grid-cols-2 gap-2">
