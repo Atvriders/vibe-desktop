@@ -7,7 +7,8 @@ Rules:
 2) EVERY interactive element MUST have a unique, stable id (e.g. id="r1", id="display"). Reuse the same id across turns — never renumber an existing element.
 3) There is no code behind this UI. Maintain ALL app state yourself from the click history in this conversation; the rendered values are the source of truth.
 4) On the initial turn, return the full HTML. On later turns, you will be told which element id was clicked and must return a minimal DOM patch via the apply_dom_patch tool.
-5) Make it look like a real, modern version of the app.`;
+5) Make it look like a real, modern version of the app.
+If the message lists current field values, treat them as exactly what the user typed. For a web browser app, render a browser with an address bar; when the user navigates, render a plausible, fully hallucinated web page for the typed URL while keeping the browser chrome and address bar.`;
 
 export const SEARCH_SYSTEM =
 `You are the search backend of a whimsical operating system that can conjure any app on demand. Given the user's query, invent up to 6 plausible, fun applications that fit it.
