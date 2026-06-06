@@ -9,6 +9,7 @@ vi.mock("@/lib/engine", () => ({ searchApps, openWindow, patchWindow, UnknownWin
 import { POST as searchPOST } from "./search/route";
 import { POST as openPOST } from "./window/open/route";
 import { POST as patchPOST } from "./window/patch/route";
+import { POST as closePOST } from "./window/close/route";
 
 const post = (body: unknown) =>
   new Request("http://test/api", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -35,13 +36,19 @@ describe("api routes", () => {
 
   it("patch returns ops", async () => {
     patchWindow.mockResolvedValue({ ops: [{ op: "setText", id: "d", value: "7" }], cacheReadTokens: 5 });
-    const res = await patchPOST(post({ windowId: "w1", elementId: "b7" }));
+    const res = await patchPOST(post({ windowId: "w1", elementId: "b7", x: 10, y: 20, action: "click" }));
     expect(await res.json()).toEqual({ ops: [{ op: "setText", id: "d", value: "7" }], cacheReadTokens: 5 });
+    expect(patchWindow).toHaveBeenCalledWith("w1", { elementId: "b7", x: 10, y: 20, action: "click", inputs: {}, domSnapshot: undefined });
   });
 
   it("patch 404s on unknown window", async () => {
     patchWindow.mockRejectedValue(new UnknownWindowError("unknown window"));
-    const res = await patchPOST(post({ windowId: "ghost", elementId: "b" }));
+    const res = await patchPOST(post({ windowId: "ghost", elementId: "b", x: 0, y: 0 }));
     expect(res.status).toBe(404);
+  });
+
+  it("close returns 204", async () => {
+    const res = await closePOST(post({ windowId: "x" }));
+    expect(res.status).toBe(204);
   });
 });

@@ -25,19 +25,24 @@ describe("engine", () => {
     expect(html).toContain("id=\"d\"");
   });
 
-  it("patchWindow returns the op list for a known window", async () => {
+  it("patchWindow returns ops and sends coordinate-aware wording", async () => {
     create.mockResolvedValueOnce({ content: [{ type: "text", text: "<div id=\"d\">0</div>" }], usage: {} });
     const { windowId } = await openWindow("Calculator");
     create.mockResolvedValueOnce({
       content: [{ type: "tool_use", id: "t2", name: "apply_dom_patch", input: { ops: [{ op: "setText", id: "d", value: "7" }] } }],
-      usage: { cache_read_input_tokens: 1234 },
+      usage: { cache_read_input_tokens: 5 },
     });
-    const { ops, cacheReadTokens } = await patchWindow(windowId, "btn7");
+    const { ops, cacheReadTokens } = await patchWindow(windowId, { elementId: "btn7", x: 42, y: 88, action: "click" });
     expect(ops[0]).toMatchObject({ op: "setText", id: "d", value: "7" });
-    expect(cacheReadTokens).toBe(1234);
+    expect(cacheReadTokens).toBe(5);
+    const lastCall = create.mock.calls.at(-1)![0];
+    const userText = JSON.stringify(lastCall.messages);
+    expect(userText).toContain("x=42");
+    expect(userText).toContain("y=88");
+    expect(userText).toContain("btn7");
   });
 
   it("patchWindow throws on unknown window", async () => {
-    await expect(patchWindow("nope", "x")).rejects.toThrow();
+    await expect(patchWindow("nope", { x: 1, y: 1 })).rejects.toThrow();
   });
 });

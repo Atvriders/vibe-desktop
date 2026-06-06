@@ -38,24 +38,42 @@ export async function openWindow(appName: string): Promise<{ windowId: string; h
   return { windowId: session.id, html };
 }
 
+export interface PatchInput {
+  elementId?: string | null;
+  x: number;
+  y: number;
+  action?: "click" | "contextmenu";
+  inputs?: Record<string, string>;
+  domSnapshot?: string;
+}
+
 export async function patchWindow(
   windowId: string,
-  elementId: string,
-  domSnapshot?: string,
+  input: PatchInput,
 ): Promise<{ ops: RawOp[]; cacheReadTokens: number }> {
   const session = getSession(windowId);
   if (!session) throw new UnknownWindowError(`unknown window: ${windowId}`);
 
-  if (domSnapshot) {
+  if (input.domSnapshot) {
     session.messages.push({
       role: "user",
-      content: `The current DOM is:\n${domSnapshot}\nContinue from this exact state.`,
+      content: `The current DOM is:\n${input.domSnapshot}\nContinue from this exact state.`,
     });
+  }
+  const verb = input.action === "contextmenu" ? "right-clicked" : "clicked";
+  const on = input.elementId ? `, on or near the element with id "${input.elementId}"` : "";
+  const menu = input.action === "contextmenu" ? " If a context menu is appropriate, render it." : "";
+  let userContent =
+    `The user ${verb} at x=${input.x}, y=${input.y} (percent of the window, top-left origin)${on}. ` +
+    `Using the HTML you generated, determine what was clicked and return the DOM patch for the resulting screen.${menu}`;
+  if (input.inputs && Object.keys(input.inputs).length > 0) {
+    userContent += " Current field values: " + Object.entries(input.inputs).map(([k, v]) => k + "=\"" + v + "\"").join(", ") + ".";
   }
   session.messages.push({
     role: "user",
-    content: `The user clicked the element with id "${elementId}". Update the app state and return the DOM patch.`,
+    content: userContent,
   });
+
   const res = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 1024,

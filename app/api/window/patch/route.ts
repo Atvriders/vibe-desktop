@@ -1,15 +1,23 @@
+// SSRF-safe: this route never fetches a user URL — "browser" pages are hallucinated by Claude, not fetched.
 import { NextResponse } from "next/server";
 import { patchWindow, UnknownWindowError } from "@/lib/engine";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  const { windowId, elementId, domSnapshot } = await req.json().catch(() => ({}));
-  if (!windowId || !elementId) {
-    return NextResponse.json({ error: "windowId and elementId required" }, { status: 400 });
+  const { windowId, elementId, x, y, action, inputs, domSnapshot } = await req.json().catch(() => ({}));
+  if (!windowId || typeof x !== "number" || typeof y !== "number") {
+    return NextResponse.json({ error: "windowId, x and y required" }, { status: 400 });
   }
   try {
-    const { ops, cacheReadTokens } = await patchWindow(windowId, elementId, domSnapshot);
+    const { ops, cacheReadTokens } = await patchWindow(windowId, {
+      elementId: elementId ?? null,
+      x,
+      y,
+      action: action === "contextmenu" ? "contextmenu" : "click",
+      inputs: inputs ?? {},
+      domSnapshot,
+    });
     return NextResponse.json({ ops, cacheReadTokens });
   } catch (e) {
     if (e instanceof UnknownWindowError) {
