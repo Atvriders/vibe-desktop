@@ -1403,3 +1403,127 @@ git add -A && git commit -m "docs: e2e verification notes" || echo "nothing to c
 - **Resync** is implemented as an optional `domSnapshot` the client sends every 10th click (drift mitigation), not a separate endpoint.
 - **Window reset at ~60–100K tokens** (cost guard) and **minimize** are left as obvious follow-ups; the `WinState.minimized` field and `Taskbar` are already in place to hang them on.
 - **Resize** is the cheap CSS `resize: both` handle, sufficient for a demo.
+
+---
+
+## Task 14: Docker Compose packaging
+
+**Files:** Modify `next.config.ts`, `.gitignore`; Create `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `public/.gitkeep`, `README.md`.
+
+> **Environment note:** this build sandbox has no Docker. `docker compose build` / `up` must be run by the user on a Docker host. In-repo we verify only that `npm run build` still succeeds with standalone output (which is what the image runs).
+
+- [ ] **Step 1: Enable Next standalone output**
+
+`next.config.ts`:
+```ts
+import type { NextConfig } from "next";
+const nextConfig: NextConfig = { output: "standalone" };
+export default nextConfig;
+```
+
+- [ ] **Step 2: Keep a public dir (so the image COPY succeeds) and ignore the compose env file**
+
+```bash
+mkdir -p public && touch public/.gitkeep
+```
+Append `.env` to `.gitignore` (compose reads a plain `.env`; keep the key out of git):
+```
+.env
+```
+
+- [ ] **Step 3: Write the Dockerfile**
+
+`Dockerfile`:
+```dockerfile
+# syntax=docker/dockerfile:1
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+COPY --from=build /app/public ./public
+EXPOSE 3000
+CMD ["node", "server.js"]
+```
+
+- [ ] **Step 4: Write `.dockerignore`**
+
+```
+node_modules
+.next
+.git
+.env
+.env*.local
+.superpowers
+docs
+npm-debug.log*
+```
+
+- [ ] **Step 5: Write `docker-compose.yml`**
+
+```yaml
+services:
+  vibe-desktop:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY in a .env file or your shell}"
+    restart: unless-stopped
+```
+
+- [ ] **Step 6: Write `README.md`**
+
+````markdown
+# VibeDesktop
+
+A local, single-user "hallucinated Windows 11" desktop. Type any app into the
+Spotlight search and Claude (Haiku 4.5) generates its UI and click-by-click
+behavior in real time — no app code behind it.
+
+## Run locally (Node)
+
+```bash
+echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env.local
+npm install
+npm run dev          # http://localhost:3000
+```
+
+## Run with Docker Compose
+
+```bash
+echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env   # compose reads .env
+docker compose up --build    # http://localhost:3000
+```
+
+Your Anthropic API key is only ever read server-side; it is never sent to the browser.
+````
+
+- [ ] **Step 7: Verify the production build still works**
+
+Run: `npm run build`
+Expected: build succeeds and `.next/standalone/server.js` exists (`ls .next/standalone/server.js`).
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add next.config.ts .gitignore Dockerfile .dockerignore docker-compose.yml public/.gitkeep README.md
+git commit -m "feat: docker compose packaging"
+```
+
+> **Optional (not built here):** publishing a public GHCR image via GitHub Actions (the Atvriders pattern) so compose can `pull` a prebuilt image instead of building from source. Add on request.
