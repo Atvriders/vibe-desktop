@@ -4,5 +4,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY in a .env file or your shell}"
+      # Paste your Anthropic API key here (replace the placeholder).
+      # This file is in a PUBLIC repo — do NOT commit a real key.
+      ANTHROPIC_API_KEY: "sk-ant-REPLACE_WITH_YOUR_KEY"
     restart: unless-stopped
