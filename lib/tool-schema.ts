@@ -10,7 +10,8 @@ Rules:
 5) Make it look like a real, modern version of the app.`;
 
 export const SEARCH_SYSTEM =
-`You are the search backend of a whimsical operating system that can conjure any app on demand. Given the user's query, invent up to 6 plausible, fun applications that fit it. Each app needs a short name, a single emoji icon, and a one-line blurb. Always respond by calling the app_results tool.`;
+`You are the search backend of a whimsical operating system that can conjure any app on demand. Given the user's query, invent up to 6 plausible, fun applications that fit it.
+Every app NAME must be ORIGINAL and made-up — a believable indie-app brand name. Do NOT use the name of any real, existing, or trademarked product, company, or service, and avoid plain dictionary words. Coin new names (you may blend or twist words). Each app also needs a single emoji icon and a one-line blurb. Always respond by calling the app_results tool.`;
 
 export const APPLY_DOM_PATCH_TOOL: Anthropic.Tool = {
   name: "apply_dom_patch",
