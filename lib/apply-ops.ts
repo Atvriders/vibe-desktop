@@ -1,7 +1,25 @@
 import { sanitizeHtml } from "./sanitize";
 import type { RawOp } from "./types";
 
-const isUnsafeAttr = (a: string) => a.toLowerCase().startsWith("on");
+// Attributes whose value is a URL — these must be scheme-checked.
+const URL_ATTRS = new Set(["href", "src", "action", "formaction", "poster", "background", "ping", "xlink:href"]);
+// Allowed URL schemes (plus relative / anchor paths). Everything else
+// (javascript:, data:, vbscript:, ...) is rejected.
+const SAFE_URL = /^(https?:|mailto:|tel:|\/|#|\.\/|\.\.\/)/i;
+
+// Reject event-handler attributes and nested-frame content injection outright.
+const isUnsafeAttr = (a: string): boolean => {
+  const lower = a.toLowerCase();
+  return lower.startsWith("on") || lower === "srcdoc";
+};
+
+// Reject dangerous URL schemes on URL-valued attributes. Whitespace is stripped
+// first so an obfuscated "java\tscript:" can't slip past the scheme check.
+const isUnsafeAttrValue = (attr: string, value: string): boolean => {
+  if (!URL_ATTRS.has(attr.toLowerCase())) return false;
+  const v = value.replace(/\s+/g, "");
+  return v !== "" && !SAFE_URL.test(v);
+};
 
 export function applyOps(doc: Document, ops: RawOp[]): { applied: RawOp[]; dropped: RawOp[] } {
   const applied: RawOp[] = [];
@@ -13,7 +31,7 @@ export function applyOps(doc: Document, ops: RawOp[]): { applied: RawOp[]; dropp
       switch (op.op) {
         case "setText": el.textContent = op.value ?? ""; break;
         case "setAttr":
-          if (!op.attr || isUnsafeAttr(op.attr)) { dropped.push(op); continue; }
+          if (!op.attr || isUnsafeAttr(op.attr) || isUnsafeAttrValue(op.attr, op.value ?? "")) { dropped.push(op); continue; }
           el.setAttribute(op.attr, op.value ?? ""); break;
         case "removeAttr": if (op.attr) el.removeAttribute(op.attr); break;
         case "addClass": if (op.value) el.classList.add(op.value); break;
