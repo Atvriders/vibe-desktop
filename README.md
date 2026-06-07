@@ -25,7 +25,7 @@ So the host is a dumb courier: it forwards clicks and applies patches. Everythin
 ```
 Browser (Next.js client)        Next.js API routes (server)        Claude API
 ─────────────────────────       ──────────────────────────        ──────────
-Desktop shell (Win11 glass)     🔑 ANTHROPIC_API_KEY (server only) Opus 4.8
+Desktop shell (Win11 glass)     🔑 ANTHROPIC_API_KEY (server only) Haiku 4.5
 Spotlight search                /api/search   ── query → app cards thinking: disabled
 Start menu + desktop icons      /api/window/open ── app → first HTML strict apply_dom_patch tool
 Sandboxed iframe per window     /api/window/patch ── click → DOM ops prompt caching
@@ -40,7 +40,7 @@ Sandboxed iframe per window     /api/window/patch ── click → DOM ops promp
 
 **Prompt caching** keeps it affordable: each window's conversation grows with every click, and the whole thing is re-sent each time, so the stable prefix (the system prompt + the first render) is cached and re-read at ~0.1× input cost instead of full price.
 
-**Model:** Claude **Opus 4.8** with thinking disabled — the most capable model, for the highest-fidelity hallucinated apps. Expect **~3–5 seconds per click**: every interaction is a model round trip, and Opus trades latency for quality. (For a much faster, cheaper demo, change the one `MODEL` line in `lib/claude.ts` to `claude-haiku-4-5` — ~1.5–2s/click — or `claude-sonnet-4-6` for a middle ground.)
+**Model:** Claude **Haiku 4.5** with thinking disabled — the fastest, cheapest tier, because this is a latency-sensitive UI loop. Expect **~1.5–2 seconds per click**: a charming, slightly-laggy hallucinated OS, not a native one — every interaction is a model round trip. (Swap the one `MODEL` line in `lib/claude.ts` to `claude-sonnet-4-6` or `claude-opus-4-8` for higher-fidelity apps at ~2–5× the latency/cost.)
 
 ---
 
@@ -122,7 +122,7 @@ docs/superpowers/              the spec and implementation plans this was built 
 
 ## Honest limitations (by design)
 
-- **It's slow-ish.** ~3–5s per click on Opus (a model round trip every time; swap to Haiku in `lib/claude.ts` for ~1.5–2s). Great for a demo, not a daily driver.
+- **It's slow-ish.** ~1.5–2s per click on Haiku — a model round trip every time (swap to Sonnet/Opus in `lib/claude.ts` for higher fidelity). Great for a demo, not a daily driver.
 - **It hallucinates.** Apps are plausible, not correct. The calculator can be wrong; the "facts" in a hallucinated browser are invented. That's the whole joke.
 - **State drifts.** Over a long session the model's idea of the window can drift from what's on screen; the app periodically re-syncs the real DOM back to the model to correct it.
 - **Single-user, local, ephemeral.** No accounts, no persistence, no multi-user. Run it with your own key and have fun.
