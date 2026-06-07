@@ -11,6 +11,8 @@ export interface WinState {
   html: string;
   w: number;
   h: number;
+  maximized: boolean;
+  restore?: { x: number; y: number; w: number; h: number };
   loading: boolean;
   x: number;
   y: number;
@@ -21,13 +23,14 @@ export interface WinState {
 const TASKBAR_H = 64;
 
 export function WindowFrame({
-  win, onClose, onFocus, onMove, onResize,
+  win, onClose, onFocus, onMove, onResize, onToggleMax,
 }: {
   win: WinState;
   onClose: (id: string) => void;
   onFocus: (id: string) => void;
   onMove: (id: string, x: number, y: number) => void;
   onResize: (id: string, x: number, y: number, w: number, h: number) => void;
+  onToggleMax: (id: string) => void;
 }) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -103,6 +106,7 @@ export function WindowFrame({
   }
 
   function startDrag(e: React.PointerEvent) {
+    if (win.maximized) return;
     onFocus(win.id);
     const startX = e.clientX, startY = e.clientY, ox = win.x, oy = win.y;
     function move(ev: PointerEvent) {
@@ -129,9 +133,17 @@ export function WindowFrame({
       style={{ position: "absolute", left: win.x, top: win.y, zIndex: win.z, width: win.w, height: win.h, overflow: "hidden" }}
       className="rounded-xl border border-white/60 ring-1 ring-black/10 shadow-2xl bg-white/80 backdrop-blur-xl flex flex-col"
     >
-      <div onPointerDown={startDrag} className="cursor-move select-none flex items-center justify-between px-3 py-2 bg-white/60 border-b border-white/40">
+      <div onPointerDown={startDrag} onDoubleClick={() => onToggleMax(win.id)} className="cursor-move select-none flex items-center justify-between px-3 py-2 bg-white/60 border-b border-white/40">
         <span className="text-sm font-medium text-slate-700 truncate">{win.icon ? win.icon + " " : ""}{win.title}</span>
-        <button aria-label="Close" onClick={() => onClose(win.id)} className="w-3.5 h-3.5 rounded-full bg-red-400 hover:bg-red-500" />
+        <div className="flex items-center gap-1.5">
+          <button
+            aria-label={win.maximized ? "Restore" : "Maximize"}
+            title={win.maximized ? "Restore" : "Maximize"}
+            onClick={() => onToggleMax(win.id)}
+            className="w-3.5 h-3.5 rounded-full bg-green-400 hover:bg-green-500"
+          />
+          <button aria-label="Close" onClick={() => onClose(win.id)} className="w-3.5 h-3.5 rounded-full bg-red-400 hover:bg-red-500" />
+        </div>
       </div>
       {win.loading ? (
         <div className="flex-1 grid place-items-center bg-white">
@@ -153,14 +165,16 @@ export function WindowFrame({
         </div>
       )}
       {/* 8-direction resize handles */}
-      <div onPointerDown={(e) => startResize(e, "n")} className="absolute top-0 left-2 right-2 h-1.5 cursor-ns-resize z-20" />
-      <div onPointerDown={(e) => startResize(e, "s")} className="absolute bottom-0 left-2 right-2 h-1.5 cursor-ns-resize z-20" />
-      <div onPointerDown={(e) => startResize(e, "e")} className="absolute right-0 top-2 bottom-2 w-1.5 cursor-ew-resize z-20" />
-      <div onPointerDown={(e) => startResize(e, "w")} className="absolute left-0 top-2 bottom-2 w-1.5 cursor-ew-resize z-20" />
-      <div onPointerDown={(e) => startResize(e, "nw")} className="absolute top-0 left-0 w-2.5 h-2.5 cursor-nwse-resize z-20" />
-      <div onPointerDown={(e) => startResize(e, "ne")} className="absolute top-0 right-0 w-2.5 h-2.5 cursor-nesw-resize z-20" />
-      <div onPointerDown={(e) => startResize(e, "sw")} className="absolute bottom-0 left-0 w-2.5 h-2.5 cursor-nesw-resize z-20" />
-      <div onPointerDown={(e) => startResize(e, "se")} className="absolute bottom-0 right-0 w-2.5 h-2.5 cursor-nwse-resize z-20" />
+      {!win.maximized && (<>
+        <div onPointerDown={(e) => startResize(e, "n")} className="absolute top-0 left-2 right-2 h-1.5 cursor-ns-resize z-20" />
+        <div onPointerDown={(e) => startResize(e, "s")} className="absolute bottom-0 left-2 right-2 h-1.5 cursor-ns-resize z-20" />
+        <div onPointerDown={(e) => startResize(e, "e")} className="absolute right-0 top-2 bottom-2 w-1.5 cursor-ew-resize z-20" />
+        <div onPointerDown={(e) => startResize(e, "w")} className="absolute left-0 top-2 bottom-2 w-1.5 cursor-ew-resize z-20" />
+        <div onPointerDown={(e) => startResize(e, "nw")} className="absolute top-0 left-0 w-2.5 h-2.5 cursor-nwse-resize z-20" />
+        <div onPointerDown={(e) => startResize(e, "ne")} className="absolute top-0 right-0 w-2.5 h-2.5 cursor-nesw-resize z-20" />
+        <div onPointerDown={(e) => startResize(e, "sw")} className="absolute bottom-0 left-0 w-2.5 h-2.5 cursor-nesw-resize z-20" />
+        <div onPointerDown={(e) => startResize(e, "se")} className="absolute bottom-0 right-0 w-2.5 h-2.5 cursor-nwse-resize z-20" />
+      </>)}
     </div>
   );
 }

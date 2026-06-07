@@ -27,7 +27,7 @@ export default function Desktop() {
     setSeq(z);
     const tempId = `tmp-${z}`;
     const spawn = clampToViewport(120 + (windows.length % 6) * 28, 90 + (windows.length % 6) * 28, 520, 380, window.innerWidth, window.innerHeight, TASKBAR_H);
-    setWindows((ws) => [...ws, { id: tempId, title: card.name, icon: card.icon, html: "", w: 520, h: 380, loading: true, x: spawn.x, y: spawn.y, z, minimized: false }]);
+    setWindows((ws) => [...ws, { id: tempId, title: card.name, icon: card.icon, html: "", w: 520, h: 380, loading: true, x: spawn.x, y: spawn.y, z, minimized: false, maximized: false }]);
     try {
       const r = await fetch("/api/window/open", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ appName: card.name }) });
       const data = await r.json();
@@ -36,6 +36,19 @@ export default function Desktop() {
     } catch {
       setWindows((ws) => ws.map((w) => (w.id === tempId ? { ...w, loading: false, html: ERROR_HTML } : w)));
     }
+  }
+
+  function toggleMax(id: string) {
+    setWindows((ws) =>
+      ws.map((w) => {
+        if (w.id !== id) return w;
+        if (w.maximized) {
+          const r = w.restore ?? { x: w.x, y: w.y, w: 520, h: 380 };
+          return { ...w, x: r.x, y: r.y, w: r.w, h: r.h, maximized: false, restore: undefined };
+        }
+        return { ...w, restore: { x: w.x, y: w.y, w: w.w, h: w.h }, x: 0, y: 0, w: window.innerWidth, h: window.innerHeight - 64, maximized: true };
+      }),
+    );
   }
 
   function focus(id: string) { const z = seq + 1; setSeq(z); setWindows((ws) => ws.map((w) => (w.id === id ? { ...w, z } : w))); }
@@ -58,7 +71,7 @@ export default function Desktop() {
       onClick={() => setCtxMenu(null)}
     >
       <DesktopIcons onOpen={openApp} />
-      {windows.map((w) => (<WindowFrame key={w.id} win={w} onClose={close} onFocus={focus} onMove={move} onResize={resize} />))}
+      {windows.map((w) => (<WindowFrame key={w.id} win={w} onClose={close} onFocus={focus} onMove={move} onResize={resize} onToggleMax={toggleMax} />))}
       {spotlight && <Spotlight onOpen={openApp} onClose={() => setSpotlight(false)} />}
       {startOpen && <StartMenu onOpen={openApp} onClose={() => setStartOpen(false)} />}
       {ctxMenu && (
