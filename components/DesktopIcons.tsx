@@ -7,7 +7,7 @@ export function DesktopIcons({ onOpen }: { onOpen: (card: AppCard) => void }) {
   return (
     <div className="absolute top-4 left-4 z-10 flex flex-col gap-3">
       {apps.map((a) => (
-        <button key={a.id} onClick={() => onOpen(a)} className="flex flex-col items-center gap-1 w-20 p-2 rounded-lg hover:bg-white/15 text-white text-center">
+        <button key={a.id} onDoubleClick={() => onOpen(a)} aria-label={a.name} title={`Double-click to open ${a.name}`} className="flex flex-col items-center gap-1 w-20 p-2 rounded-lg hover:bg-white/15 focus:bg-white/20 text-white text-center select-none">
           <span className="text-3xl drop-shadow">{a.icon}</span>
           <span className="text-xs drop-shadow">{a.name}</span>
         </button>

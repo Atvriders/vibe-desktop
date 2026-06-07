@@ -8,10 +8,12 @@ describe("DesktopIcons", () => {
     expect(screen.getByText("Files")).toBeInTheDocument();
   });
 
-  it("clicking Files calls onOpen with the files card", () => {
+  it("opens on double-click, not single click", () => {
     const onOpen = vi.fn();
     render(<DesktopIcons onOpen={onOpen} />);
     fireEvent.click(screen.getByText("Files"));
+    expect(onOpen).not.toHaveBeenCalled();
+    fireEvent.doubleClick(screen.getByText("Files"));
     expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: "files" }));
   });
 });
