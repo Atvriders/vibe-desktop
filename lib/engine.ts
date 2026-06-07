@@ -2,6 +2,7 @@ import { anthropic, MODEL } from "./claude";
 import { frozenSystem, cacheLastTurn } from "./cache";
 import { WINDOW_SYSTEM, SEARCH_SYSTEM, APPLY_DOM_PATCH_TOOL, APP_CARDS_TOOL } from "./tool-schema";
 import { newSession, getSession } from "./sessions";
+import { stripFences } from "./html";
 import type { AppCard, RawOp } from "./types";
 
 export class UnknownWindowError extends Error {}
@@ -33,8 +34,9 @@ export async function openWindow(appName: string): Promise<{ windowId: string; h
     system: frozenSystem(WINDOW_SYSTEM(appName)),
     messages: cacheLastTurn(session.messages),
   });
-  const html = res.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("");
-  session.messages.push({ role: "assistant", content: res.content });
+  const html = stripFences(res.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join(""));
+  // store the cleaned HTML (not the raw fenced text) so the model's own context stays clean
+  session.messages.push({ role: "assistant", content: html });
   return { windowId: session.id, html };
 }
 
@@ -50,7 +52,7 @@ export interface PatchInput {
 export async function patchWindow(
   windowId: string,
   input: PatchInput,
-): Promise<{ ops: RawOp[]; cacheReadTokens: number }> {
+): Promise<{ ops: RawOp[]; cacheReadTokens: number; stopReason: string | null }> {
   const session = getSession(windowId);
   if (!session) throw new UnknownWindowError(`unknown window: ${windowId}`);
 
@@ -76,7 +78,7 @@ export async function patchWindow(
 
   const res = await anthropic.messages.create({
     model: MODEL,
-    max_tokens: 1024,
+    max_tokens: 4096, // room for full-screen replaceHTML navigation patches (1024 truncated them)
     thinking: NO_THINK,
     system: frozenSystem(WINDOW_SYSTEM(session.appName)),
     tools: [APPLY_DOM_PATCH_TOOL],
@@ -86,9 +88,11 @@ export async function patchWindow(
 
   const block = res.content.find((b) => b.type === "tool_use");
   const ops = (block && block.type === "tool_use" ? (block.input as { ops?: RawOp[] }).ops ?? [] : []);
+  const stopReason = res.stop_reason ?? null;
+  console.log(`[patch ${session.appName}] ops=${ops.length} stop=${stopReason} cacheRead=${res.usage?.cache_read_input_tokens ?? 0}`);
   session.messages.push({ role: "assistant", content: res.content });
   if (block && block.type === "tool_use") {
     session.messages.push({ role: "user", content: [{ type: "tool_result", tool_use_id: block.id, content: "applied" }] });
   }
-  return { ops, cacheReadTokens: res.usage?.cache_read_input_tokens ?? 0 };
+  return { ops, cacheReadTokens: res.usage?.cache_read_input_tokens ?? 0, stopReason };
 }

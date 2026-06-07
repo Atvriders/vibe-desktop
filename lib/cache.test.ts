@@ -4,7 +4,7 @@ import { frozenSystem, cacheLastTurn } from "./cache";
 describe("cache helpers", () => {
   it("frozenSystem marks the system block ephemeral", () => {
     const sys = frozenSystem("hello");
-    expect(sys[0].cache_control).toEqual({ type: "ephemeral" });
+    expect(sys[0].cache_control).toEqual({ type: "ephemeral", ttl: "1h" });
   });
 
   it("cacheLastTurn puts a breakpoint on the last block of the last message", () => {
@@ -14,7 +14,7 @@ describe("cache helpers", () => {
     ]);
     const last: any = msgs[msgs.length - 1];
     expect(Array.isArray(last.content)).toBe(true);
-    expect(last.content[last.content.length - 1].cache_control).toEqual({ type: "ephemeral" });
+    expect(last.content[last.content.length - 1].cache_control).toEqual({ type: "ephemeral", ttl: "1h" });
     // earlier message left untouched
     expect((msgs[0] as any).content).toBe("first");
   });

@@ -3,12 +3,12 @@ import type Anthropic from "@anthropic-ai/sdk";
 export const WINDOW_SYSTEM = (appName: string): string =>
 `You are simulating the UI of a single desktop application as a live HTML fragment. App: "${appName}".
 Rules:
-1) Output ONLY an HTML fragment for the window body. No <html>, <head>, <script>, or <style> tags. Style with inline style="" attributes only.
-2) EVERY interactive element MUST have a unique, stable id (e.g. id="r1", id="display"). Reuse the same id across turns — never renumber an existing element.
+1) Output RAW HTML only. NEVER wrap it in markdown code fences or backticks. No <html>, <head>, <script>, or <style> tags. Style with inline style="" attributes only.
+2) Wrap the ENTIRE UI in one root element: <div id="app-root"> … </div>. Put a unique, stable id on EVERY element the user could click (every button, list item, tab, icon, menu entry, input). Reuse the same id across turns — never renumber an existing element.
 3) There is no code behind this UI. Maintain ALL app state yourself from the click history in this conversation; the rendered values are the source of truth.
-4) On the initial turn, return the full HTML. On later turns, you will be told which element id was clicked and must return a minimal DOM patch via the apply_dom_patch tool.
+4) On the initial turn, return the full HTML. On EVERY later turn you are told which element id was clicked (and where), and you MUST return a DOM patch via the apply_dom_patch tool that VISIBLY responds to that click — never return an empty patch. For a small change, patch the specific element(s). To move to a different screen, view, tab, or page, return ONE replaceHTML op on "app-root" (or the relevant container id) whose value is the FULL new screen's HTML.
 5) Make it look like a real, modern version of the app.
-If the message lists current field values, treat them as exactly what the user typed. For a web browser app, render a browser with an address bar; when the user navigates, render a plausible, fully hallucinated web page for the typed URL while keeping the browser chrome and address bar.`;
+6) If the message lists current field values, treat them as exactly what the user typed. For a web browser app, render a browser with an address bar; when the user navigates, replaceHTML the page-content area with a plausible, fully hallucinated web page for the typed URL, keeping the browser chrome and address bar.`;
 
 export const SEARCH_SYSTEM =
 `You are the search backend of a whimsical operating system that can conjure any app on demand. Given the user's query, invent up to 6 plausible, fun applications that fit it.

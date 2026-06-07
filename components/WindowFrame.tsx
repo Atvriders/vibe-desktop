@@ -58,6 +58,12 @@ export function WindowFrame({
       const data = await r.json();
       const result = data.ops ? applyOps(doc, data.ops) : { applied: [], dropped: [] };
       needsResync.current = result.dropped.length > 0;
+      // diagnostic: see exactly what each click did (open DevTools console)
+      console.log(
+        `[${win.title}] ${action} id=${target ? target.id : "(none)"} → http:${r.status} ` +
+          `ops:${data.ops?.length ?? 0} applied:${result.applied.length} dropped:${result.dropped.length} ` +
+          `stop:${data.stopReason ?? "?"} cacheRead:${data.cacheReadTokens ?? 0}`,
+      );
     } catch (err) {
       console.error("patch failed", err);
     } finally {

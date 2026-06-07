@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "windowId, x and y required" }, { status: 400 });
   }
   try {
-    const { ops, cacheReadTokens } = await patchWindow(windowId, {
+    const result = await patchWindow(windowId, {
       elementId: elementId ?? null,
       x,
       y,
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
       inputs: inputs ?? {},
       domSnapshot,
     });
-    return NextResponse.json({ ops, cacheReadTokens });
+    return NextResponse.json(result);
   } catch (e) {
     if (e instanceof UnknownWindowError) {
       return NextResponse.json({ error: "unknown window" }, { status: 404 });

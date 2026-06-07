@@ -2,7 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 
 /** System prompt as a cached (frozen) prefix block. */
 export function frozenSystem(text: string): Anthropic.TextBlockParam[] {
-  return [{ type: "text", text, cache_control: { type: "ephemeral" } }];
+  return [{ type: "text", text, cache_control: { type: "ephemeral", ttl: "1h" } }];
 }
 
 /** Return a copy of `messages` with a cache breakpoint on the last content
@@ -17,7 +17,7 @@ export function cacheLastTurn(messages: Anthropic.MessageParam[]): Anthropic.Mes
       ? [{ type: "text", text: last.content } as Anthropic.TextBlockParam]
       : last.content.map((b) => ({ ...b }));
   const tail = content[content.length - 1] as { cache_control?: unknown };
-  tail.cache_control = { type: "ephemeral" };
+  tail.cache_control = { type: "ephemeral", ttl: "1h" };
   last.content = content as Anthropic.MessageParam["content"];
   return copy;
 }
