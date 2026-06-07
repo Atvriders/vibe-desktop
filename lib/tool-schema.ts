@@ -18,7 +18,7 @@ export const APPLY_DOM_PATCH_TOOL: Anthropic.Tool = {
   name: "apply_dom_patch",
   strict: true,
   description:
-    "Return the minimal set of DOM edits that result from the user's click. Target elements ONLY by their existing id. To add new elements use insertHTML and give every new element a unique id.",
+    "Return the minimal set of DOM edits that result from the user's click. Target elements ONLY by their existing id. Use setText ONLY for plain text — if the new value contains ANY HTML tags, use replaceHTML (to set an element's inner HTML) or insertHTML (to add child elements), never setText. To add new elements use insertHTML and give every new element a unique id.",
   input_schema: {
     type: "object",
     additionalProperties: false,

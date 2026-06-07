@@ -29,7 +29,14 @@ export function applyOps(doc: Document, ops: RawOp[]): { applied: RawOp[]; dropp
     if (!el) { dropped.push(op); continue; }
     try {
       switch (op.op) {
-        case "setText": el.textContent = op.value ?? ""; break;
+        case "setText": {
+          const v = op.value ?? "";
+          // Haiku sometimes puts HTML markup in a setText value; render it as
+          // (sanitized) HTML instead of literal text. A real tag is "<" + letter + (space|>|/).
+          if (/<[a-z][a-z0-9]*[\s/>]/i.test(v)) el.innerHTML = sanitizeHtml(v);
+          else el.textContent = v;
+          break;
+        }
         case "setAttr":
           if (!op.attr || isUnsafeAttr(op.attr) || isUnsafeAttrValue(op.attr, op.value ?? "")) { dropped.push(op); continue; }
           el.setAttribute(op.attr, op.value ?? ""); break;

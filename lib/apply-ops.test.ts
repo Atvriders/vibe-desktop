@@ -17,6 +17,19 @@ describe("applyOps", () => {
     expect(r.dropped).toHaveLength(0);
   });
 
+  it("renders HTML markup put in a setText as elements, not literal text", () => {
+    const d = docWith('<div id="a"></div>');
+    applyOps(d, [{ op: "setText", id: "a", value: '<button id="t1">Tab 1</button>' }]);
+    expect(d.getElementById("a")!.querySelector("#t1")?.textContent).toBe("Tab 1");
+    expect(d.getElementById("a")!.textContent).not.toContain("<button");
+  });
+
+  it("keeps a non-tag value (e.g. math) as literal text", () => {
+    const d = docWith('<div id="a"></div>');
+    applyOps(d, [{ op: "setText", id: "a", value: "5 < 3 = false" }]);
+    expect(d.getElementById("a")!.textContent).toBe("5 < 3 = false");
+  });
+
   it("drops ops that target a nonexistent id", () => {
     const d = docWith('<div id="a"></div>');
     const r = applyOps(d, [{ op: "setText", id: "ghost", value: "x" } as RawOp]);
