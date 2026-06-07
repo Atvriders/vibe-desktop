@@ -1,7 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { applyOps } from "@/lib/apply-ops";
-import { clampToViewport } from "@/lib/geometry";
+import { clampToViewport, resizeWindow, type ResizeDir } from "@/lib/geometry";
 import { wrapSandboxed } from "@/lib/sandbox-doc";
 
 export interface WinState {
@@ -9,6 +9,8 @@ export interface WinState {
   title: string;
   icon?: string;
   html: string;
+  w: number;
+  h: number;
   loading: boolean;
   x: number;
   y: number;
@@ -19,12 +21,13 @@ export interface WinState {
 const TASKBAR_H = 64;
 
 export function WindowFrame({
-  win, onClose, onFocus, onMove,
+  win, onClose, onFocus, onMove, onResize,
 }: {
   win: WinState;
   onClose: (id: string) => void;
   onFocus: (id: string) => void;
   onMove: (id: string, x: number, y: number) => void;
+  onResize: (id: string, x: number, y: number, w: number, h: number) => void;
 }) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -85,6 +88,20 @@ export function WindowFrame({
     }, true);
   }
 
+  function startResize(e: React.PointerEvent, dir: ResizeDir) {
+    e.preventDefault(); e.stopPropagation();
+    onFocus(win.id);
+    const startX = e.clientX, startY = e.clientY;
+    const rect = { x: win.x, y: win.y, w: win.w, h: win.h };
+    function move(ev: PointerEvent) {
+      const r = resizeWindow(dir, ev.clientX - startX, ev.clientY - startY, rect, { vw: window.innerWidth, vh: window.innerHeight });
+      onResize(win.id, r.x, r.y, r.w, r.h);
+    }
+    function up() { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); }
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
   function startDrag(e: React.PointerEvent) {
     onFocus(win.id);
     const startX = e.clientX, startY = e.clientY, ox = win.x, oy = win.y;
@@ -109,7 +126,7 @@ export function WindowFrame({
     <div
       ref={rootRef}
       onPointerDown={() => onFocus(win.id)}
-      style={{ position: "absolute", left: win.x, top: win.y, zIndex: win.z, width: 520, height: 380, resize: "both", overflow: "hidden" }}
+      style={{ position: "absolute", left: win.x, top: win.y, zIndex: win.z, width: win.w, height: win.h, overflow: "hidden" }}
       className="rounded-xl border border-white/60 ring-1 ring-black/10 shadow-2xl bg-white/80 backdrop-blur-xl flex flex-col"
     >
       <div onPointerDown={startDrag} className="cursor-move select-none flex items-center justify-between px-3 py-2 bg-white/60 border-b border-white/40">
@@ -135,6 +152,15 @@ export function WindowFrame({
           )}
         </div>
       )}
+      {/* 8-direction resize handles */}
+      <div onPointerDown={(e) => startResize(e, "n")} className="absolute top-0 left-2 right-2 h-1.5 cursor-ns-resize z-20" />
+      <div onPointerDown={(e) => startResize(e, "s")} className="absolute bottom-0 left-2 right-2 h-1.5 cursor-ns-resize z-20" />
+      <div onPointerDown={(e) => startResize(e, "e")} className="absolute right-0 top-2 bottom-2 w-1.5 cursor-ew-resize z-20" />
+      <div onPointerDown={(e) => startResize(e, "w")} className="absolute left-0 top-2 bottom-2 w-1.5 cursor-ew-resize z-20" />
+      <div onPointerDown={(e) => startResize(e, "nw")} className="absolute top-0 left-0 w-2.5 h-2.5 cursor-nwse-resize z-20" />
+      <div onPointerDown={(e) => startResize(e, "ne")} className="absolute top-0 right-0 w-2.5 h-2.5 cursor-nesw-resize z-20" />
+      <div onPointerDown={(e) => startResize(e, "sw")} className="absolute bottom-0 left-0 w-2.5 h-2.5 cursor-nesw-resize z-20" />
+      <div onPointerDown={(e) => startResize(e, "se")} className="absolute bottom-0 right-0 w-2.5 h-2.5 cursor-nwse-resize z-20" />
     </div>
   );
 }

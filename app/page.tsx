@@ -27,7 +27,7 @@ export default function Desktop() {
     setSeq(z);
     const tempId = `tmp-${z}`;
     const spawn = clampToViewport(120 + (windows.length % 6) * 28, 90 + (windows.length % 6) * 28, 520, 380, window.innerWidth, window.innerHeight, TASKBAR_H);
-    setWindows((ws) => [...ws, { id: tempId, title: card.name, icon: card.icon, html: "", loading: true, x: spawn.x, y: spawn.y, z, minimized: false }]);
+    setWindows((ws) => [...ws, { id: tempId, title: card.name, icon: card.icon, html: "", w: 520, h: 380, loading: true, x: spawn.x, y: spawn.y, z, minimized: false }]);
     try {
       const r = await fetch("/api/window/open", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ appName: card.name }) });
       const data = await r.json();
@@ -40,6 +40,7 @@ export default function Desktop() {
 
   function focus(id: string) { const z = seq + 1; setSeq(z); setWindows((ws) => ws.map((w) => (w.id === id ? { ...w, z } : w))); }
   function move(id: string, x: number, y: number) { setWindows((ws) => ws.map((w) => (w.id === id ? { ...w, x, y } : w))); }
+  function resize(id: string, x: number, y: number, w: number, h: number) { setWindows((ws) => ws.map((win) => win.id === id ? { ...win, x, y, w, h } : win)); }
   function close(id: string) {
     if (!id.startsWith("tmp-")) {
       fetch("/api/window/close", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ windowId: id }), keepalive: true }).catch(() => {});
@@ -57,7 +58,7 @@ export default function Desktop() {
       onClick={() => setCtxMenu(null)}
     >
       <DesktopIcons onOpen={openApp} />
-      {windows.map((w) => (<WindowFrame key={w.id} win={w} onClose={close} onFocus={focus} onMove={move} />))}
+      {windows.map((w) => (<WindowFrame key={w.id} win={w} onClose={close} onFocus={focus} onMove={move} onResize={resize} />))}
       {spotlight && <Spotlight onOpen={openApp} onClose={() => setSpotlight(false)} />}
       {startOpen && <StartMenu onOpen={openApp} onClose={() => setStartOpen(false)} />}
       {ctxMenu && (
