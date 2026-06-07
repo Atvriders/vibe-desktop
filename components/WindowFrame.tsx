@@ -116,7 +116,6 @@ export function WindowFrame({
         <span className="text-sm font-medium text-slate-700 truncate">{win.icon ? win.icon + " " : ""}{win.title}</span>
         <button aria-label="Close" onClick={() => onClose(win.id)} className="w-3.5 h-3.5 rounded-full bg-red-400 hover:bg-red-500" />
       </div>
-      {busy && <div className="h-0.5 w-full bg-blue-500/80 animate-pulse" />}
       {win.loading ? (
         <div className="flex-1 grid place-items-center bg-white">
           <div className="text-center animate-pulse">
@@ -125,7 +124,16 @@ export function WindowFrame({
           </div>
         </div>
       ) : (
-        <iframe ref={frameRef} title={win.title} onLoad={onLoad} sandbox="allow-same-origin" srcDoc={wrapSandboxed(win.html)} className="flex-1 w-full bg-white" />
+        <div className="relative flex-1">
+          <iframe ref={frameRef} title={win.title} onLoad={onLoad} sandbox="allow-same-origin" srcDoc={wrapSandboxed(win.html)} className="absolute inset-0 w-full h-full bg-white" />
+          {busy && (
+            <div className="absolute inset-0 z-10 grid place-items-center bg-white/40 backdrop-blur-[1px]">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/90 shadow-lg text-sm font-medium text-slate-700 animate-pulse">
+                <span>✨</span> Hallucinating…
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
