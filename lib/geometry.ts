@@ -15,16 +15,21 @@ export function resizeWindow(
   opts: { vw: number; vh: number; minW?: number; minH?: number; taskbarH?: number },
 ): { x: number; y: number; w: number; h: number } {
   const minW = opts.minW ?? 240, minH = opts.minH ?? 160, taskbarH = opts.taskbarH ?? 64;
+  const maxRight = opts.vw, maxBottom = opts.vh - taskbarH;
   let left = rect.x, right = rect.x + rect.w, top = rect.y, bottom = rect.y + rect.h;
-  if (dir.includes("w")) left = rect.x + dx;
-  if (dir.includes("e")) right = rect.x + rect.w + dx;
-  if (dir.includes("n")) top = rect.y + dy;
-  if (dir.includes("s")) bottom = rect.y + rect.h + dy;
-  left = Math.max(0, left);
-  top = Math.max(0, top);
-  right = Math.min(opts.vw, right);
-  bottom = Math.min(opts.vh - taskbarH, bottom);
-  if (right - left < minW) { if (dir.includes("w")) left = right - minW; else right = left + minW; }
-  if (bottom - top < minH) { if (dir.includes("n")) top = bottom - minH; else bottom = top + minH; }
+  // Only the dragged edge moves, and only it is clamped to the viewport — the fixed edge stays put.
+  if (dir.includes("w")) left = Math.max(0, rect.x + dx);
+  if (dir.includes("e")) right = Math.min(maxRight, rect.x + rect.w + dx);
+  if (dir.includes("n")) top = Math.max(0, rect.y + dy);
+  if (dir.includes("s")) bottom = Math.min(maxBottom, rect.y + rect.h + dy);
+  // Enforce the minimum size by moving the dragged edge, kept inside the viewport.
+  if (right - left < minW) {
+    if (dir.includes("w")) left = Math.max(0, right - minW);
+    else right = Math.min(maxRight, left + minW);
+  }
+  if (bottom - top < minH) {
+    if (dir.includes("n")) top = Math.max(0, bottom - minH);
+    else bottom = Math.min(maxBottom, top + minH);
+  }
   return { x: left, y: top, w: right - left, h: bottom - top };
 }

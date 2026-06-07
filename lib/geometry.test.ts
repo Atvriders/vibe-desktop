@@ -49,4 +49,16 @@ describe("resizeWindow", () => {
     // right clamps to 1000, w = 1000 - 100 = 900
     expect(resizeWindow("e", 99999, 0, rect, { vw: 1000, vh: 1080 })).toEqual({ x: 100, y: 100, w: 900, h: 380 });
   });
+
+  it("dragging the W edge leaves the fixed (off-screen) right edge put", () => {
+    // window wider than viewport; only the dragged left edge should move
+    const r = resizeWindow("w", 40, 0, { x: 100, y: 100, w: 2000, h: 380 }, { vw: 1000, vh: 1080 });
+    expect(r).toEqual({ x: 140, y: 100, w: 1960, h: 380 }); // right edge stays at 2100
+  });
+
+  it("min-size correction never pushes the dragged edge past the viewport", () => {
+    // window's left is near the right wall; shrinking can't exceed vw even with min applied
+    const r = resizeWindow("e", -2000, 0, { x: 820, y: 100, w: 240, h: 380 }, { vw: 1000, vh: 1080 });
+    expect(r.x + r.w).toBeLessThanOrEqual(1000);
+  });
 });
