@@ -9,4 +9,9 @@ describe("StartMenu", () => {
     fireEvent.click(screen.getByText("Settings"));
     expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ id: "settings", name: "Settings" }));
   });
+
+  it("sits above every window", () => {
+    const { container } = render(<StartMenu onOpen={vi.fn()} onClose={() => {}} />);
+    expect((container.firstElementChild as HTMLElement).className).toContain("z-[1000]");
+  });
 });

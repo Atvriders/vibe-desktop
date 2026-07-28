@@ -6,7 +6,7 @@ export function DesktopContextMenu({
 }) {
   return (
     <div
-      className="fixed z-50 min-w-[10rem] rounded-lg bg-white/95 backdrop-blur shadow-xl border border-slate-200 py-1 text-sm text-slate-700"
+      className="fixed z-[1100] min-w-[10rem] rounded-lg bg-white/95 backdrop-blur shadow-xl border border-slate-200 py-1 text-sm text-slate-700"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >

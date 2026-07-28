@@ -11,4 +11,9 @@ describe("DesktopContextMenu", () => {
     expect(onNewApp).toHaveBeenCalled();
     expect(onSettings).toHaveBeenCalled();
   });
+
+  it("sits above every window", () => {
+    const { container } = render(<DesktopContextMenu x={5} y={5} onNewApp={vi.fn()} onSettings={vi.fn()} />);
+    expect((container.firstElementChild as HTMLElement).className).toContain("z-[1100]");
+  });
 });

@@ -10,13 +10,23 @@ beforeEach(() => {
 });
 
 describe("Spotlight", () => {
-  it("searches and opens a result card", async () => {
+  it("searches and opens a result card with the raw typed query", async () => {
     const onOpen = vi.fn();
     render(<Spotlight onOpen={onOpen} onClose={() => {}} />);
-    fireEvent.change(screen.getByPlaceholderText(/type any app/i), { target: { value: "a synth" } });
+    fireEvent.change(screen.getByPlaceholderText(/type any app/i), { target: { value: "a synth with 3 oscillators" } });
     fireEvent.submit(screen.getByPlaceholderText(/type any app/i));
     const card = await screen.findByText("Synthy");
     fireEvent.click(card);
-    await waitFor(() => expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ name: "Synthy" })));
+    await waitFor(() =>
+      expect(onOpen).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "Synthy", blurb: "make noise" }),
+        "a synth with 3 oscillators",
+      ),
+    );
+  });
+
+  it("sits above every window", () => {
+    const { container } = render(<Spotlight onOpen={vi.fn()} onClose={() => {}} />);
+    expect((container.firstElementChild as HTMLElement).className).toContain("z-[1100]");
   });
 });

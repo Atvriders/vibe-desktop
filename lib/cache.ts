@@ -16,6 +16,7 @@ export function cacheLastTurn(messages: Anthropic.MessageParam[]): Anthropic.Mes
     typeof last.content === "string"
       ? [{ type: "text", text: last.content } as Anthropic.TextBlockParam]
       : last.content.map((b) => ({ ...b }));
+  if (content.length === 0) return copy; // nothing to mark; an empty turn would crash the index below
   const tail = content[content.length - 1] as { cache_control?: unknown };
   tail.cache_control = { type: "ephemeral", ttl: "1h" };
   last.content = content as Anthropic.MessageParam["content"];

@@ -4,7 +4,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # Paste your Anthropic API key here (replace the placeholder).
-      # This file is in a PUBLIC repo — do NOT commit a real key.
-      ANTHROPIC_API_KEY: "sk-ant-REPLACE_WITH_YOUR_KEY"
+      # Read from your shell or from the git-ignored .env file — never hardcoded.
+      # Compose refuses to start if it is unset or empty. See .env.example.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY in .env — see .env.example}
     restart: unless-stopped

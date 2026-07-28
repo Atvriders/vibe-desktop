@@ -22,4 +22,14 @@ describe("cache helpers", () => {
   it("returns empty array unchanged", () => {
     expect(cacheLastTurn([])).toEqual([]);
   });
+
+  it("does not throw when the last message has an empty content array", () => {
+    const msgs = cacheLastTurn([
+      { role: "user", content: "first" },
+      { role: "assistant", content: [] },
+    ]);
+    expect(msgs).toHaveLength(2);
+    expect((msgs[1] as any).content).toEqual([]);
+    expect((msgs[0] as any).content).toBe("first");
+  });
 });

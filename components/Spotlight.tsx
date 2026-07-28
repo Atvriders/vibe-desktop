@@ -2,7 +2,7 @@
 import { useState } from "react";
 import type { AppCard } from "@/lib/types";
 
-export function Spotlight({ onOpen, onClose }: { onOpen: (card: AppCard) => void; onClose: () => void }) {
+export function Spotlight({ onOpen, onClose }: { onOpen: (card: AppCard, query: string) => void; onClose: () => void }) {
   const [query, setQuery] = useState("");
   const [cards, setCards] = useState<AppCard[]>([]);
   const [loading, setLoading] = useState(false);
@@ -33,7 +33,7 @@ export function Spotlight({ onOpen, onClose }: { onOpen: (card: AppCard) => void
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-24" onClick={onClose}>
+    <div className="fixed inset-0 z-[1100] flex items-start justify-center bg-black/40 pt-24" onClick={onClose}>
       <div className="w-[36rem] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
         <form onSubmit={search}>
           <input
@@ -51,7 +51,7 @@ export function Spotlight({ onOpen, onClose }: { onOpen: (card: AppCard) => void
             {cards.map((c) => (
               <button
                 key={c.id}
-                onClick={() => onOpen(c)}
+                onClick={() => onOpen(c, query)}
                 className="flex items-center gap-3 rounded-xl p-3 bg-white/90 hover:bg-white text-left shadow"
               >
                 <span className="text-2xl">{c.icon}</span>
