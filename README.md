@@ -38,9 +38,38 @@ Sandboxed iframe per window     /api/window/patch ── click → DOM ops promp
 
 **Why a flat op-list instead of "here's the new HTML"?** It's smaller (faster, cheaper), and it's the shape Claude's structured-output mode can guarantee — the host never has to guess whether the model's reply is valid. Every op targets an element by `id`, so applying it is exact.
 
-**Prompt caching** helps — but not from the first turn, and it's worth being precise about why. Each window's conversation grows with every click and the whole thing is re-sent each time, so the growing prefix is a natural cache candidate. But **Haiku 4.5's minimum cacheable prefix is 4096 tokens**, and this app's system prompt plus tool schema is only ~700. The cache breakpoint on the system block therefore never engages on its own: caching starts only once the *transcript itself* — system + tools + the accumulated renders and patches — crosses 4096 tokens, typically a few clicks into a window. From then on that prefix is re-read at ~0.1× input cost instead of full price — against a one-time write premium of 2×, because the breakpoints in `lib/cache.ts` use the 1-hour TTL. The telemetry chip in each title bar reports the cached-token count for every turn, so you can watch it switch on.
+**Prompt caching** helps — but on Haiku it doesn't help from the first turn, and the reason is more interesting than it looks. Each window's conversation grows with every click and the whole thing is re-sent each time, so the growing prefix is a natural cache candidate. But a prefix shorter than the model's minimum simply doesn't cache — silently, with no error and `cache_creation_input_tokens: 0` — and **that minimum is not monotonic across tiers**:
 
-**Model:** Claude **Haiku 4.5** with thinking disabled — the fastest, cheapest tier, because this is a latency-sensitive UI loop. Expect **~1.5–2 seconds per click**: a charming, slightly-laggy hallucinated OS, not a native one — every interaction is a model round trip. (Swap the one `MODEL` line in `lib/claude.ts` to `claude-sonnet-4-6` or `claude-opus-4-8` for higher-fidelity apps at ~2–5× the latency/cost.)
+| Model | Min cacheable prefix | This app's ~700-token system + tool prefix |
+| --- | --- | --- |
+| Claude Haiku 4.5 | **4096 tokens** | never caches on its own |
+| Claude Sonnet 5 | 1024 tokens | never caches on its own |
+| Claude Opus 5 | **512 tokens** | **caches from the very first turn** |
+
+So on the default Haiku 4.5 the breakpoint on the system block never engages by itself: caching starts only once the *transcript itself* — system + tools + the accumulated renders and patches — crosses 4096 tokens, typically a few clicks into a window. On Opus 5 the fixed prefix is over the floor immediately and caches from turn one. The cheapest model has the highest bar; the most expensive has the lowest.
+
+Once a prefix does cache it is re-read at ~0.1× input cost, against a one-time write premium of 2× — the breakpoints in `lib/cache.ts` use the 1-hour TTL, which needs at least three reads to beat no caching at all (the 5-minute default writes at 1.25× and breaks even on the second read). A click loop refreshes the entry well inside five minutes, so the 1-hour TTL is buying very little here. The telemetry chip in each title bar reports the cached-token count for every turn, so you can watch it switch on.
+
+**Model:** Claude **Haiku 4.5** (`claude-haiku-4-5`) with thinking disabled — the fastest, cheapest tier, because this is a latency-sensitive UI loop. Expect **~1.5–2 seconds per click**: a charming, slightly-laggy hallucinated OS, not a native one — every interaction is a model round trip.
+
+### Swapping the model
+
+Higher tiers draw better apps. The swap is the one `MODEL` line in `lib/claude.ts` — **except on Opus 5, where the thinking config has to change too, and the reason matters** (see the warning below).
+
+| | Haiku 4.5 | Sonnet 5 | Opus 5 |
+| --- | --- | --- | --- |
+| Model ID | `claude-haiku-4-5` | `claude-sonnet-5` | `claude-opus-5` |
+| Price in / out per Mtok | $1 / $5 | $3 / $15 <br>($2 / $10 intro thru 2026-08-31) | $5 / $25 |
+| Context | 200K | 1M | 1M |
+| Min cacheable prefix | 4096 | 1024 | 512 |
+| `effort` parameter | **rejected — errors** | `low`–`max` | `low`–`max` |
+| Thinking config for this app | `disabled` ✅ | `disabled` ✅ | **use adaptive, not `disabled`** ⚠️ |
+
+> ⚠️ **Do not just swap `MODEL` to `claude-opus-5` and leave `thinking: {type: "disabled"}` in place.** Both of this app's model calls that matter are *forced* tool calls — `apply_dom_patch` on every click and `app_results` on every search — and on Opus 5 with thinking disabled the model can write a tool call into its **visible text** instead of emitting a `tool_use` block. The request returns HTTP 200, nothing raises, `stop_reason` looks normal — and the call never runs. In this app that is indistinguishable from the empty-patch bug: you click, the busy pill spins, and the window doesn't change. The same configuration can also leak `<thinking>` tags into the visible response, which here means they render *inside the hallucinated app*. Use `thinking: {type: "adaptive"}` with `output_config: {effort: "low"}` instead — it costs less than it sounds like and removes both failure modes. (Related: on Opus 5 thinking is **on by default**, so omitting the field is not the same as disabling it, and `max_tokens` then caps thinking *plus* output — the `OPEN_MAX_TOKENS` budget in `lib/claude.ts` is sized for output alone.)
+>
+> `thinking: {type: "disabled"}` on Opus 5 is also only accepted at `effort` `high` or below — pairing it with `xhigh`/`max` is a 400.
+
+Two smaller gotchas when you swap: `effort` is **rejected outright on Haiku 4.5**, so it can't be set uniformly across models; and Sonnet 5 uses a newer tokenizer that produces roughly 30% more tokens for the same text, so its cost per click isn't simply its price ratio against Haiku.
 
 ---
 
@@ -165,7 +194,8 @@ docs/superpowers/              the specs and implementation plans this was built
 
 ## Honest limitations (by design)
 
-- **It's slow-ish.** ~1.5–2s per click on Haiku — a model round trip every time (swap to Sonnet/Opus in `lib/claude.ts` for higher fidelity). Great for a demo, not a daily driver.
+- **It's slow-ish.** ~1.5–2s per click on Haiku — a model round trip every time (see [Swapping the model](#swapping-the-model) for higher fidelity, and read the Opus 5 warning there before you do). Great for a demo, not a daily driver.
+- **No published per-model latency numbers here.** Latency for this workload is dominated by your network path, region, and time of day, so a single measurement from one machine wouldn't generalize — and inventing a table would be worse than having none. The telemetry chip in each title bar is the honest measurement: it reports the real round-trip time and cached-token count for every click on *your* connection, which is the number that actually applies to you.
 - **It hallucinates.** Apps are plausible, not correct. The calculator can be wrong; the "facts" in a hallucinated browser are invented. That's the whole joke.
 - **State drifts.** Over a long session the model's idea of the window can drift from what's on screen; the app periodically re-syncs the real DOM back to the model to correct it, and reseeds the transcript from that snapshot so a long-lived window doesn't walk into the context limit.
 - **Single-user, local, ephemeral.** No accounts, no persistence, no multi-user. Run it with your own key and have fun.
