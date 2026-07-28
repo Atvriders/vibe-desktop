@@ -38,38 +38,58 @@ Sandboxed iframe per window     /api/window/patch ── click → DOM ops promp
 
 **Why a flat op-list instead of "here's the new HTML"?** It's smaller (faster, cheaper), and it's the shape Claude's structured-output mode can guarantee — the host never has to guess whether the model's reply is valid. Every op targets an element by `id`, so applying it is exact.
 
-**Prompt caching** helps — but on Haiku it doesn't help from the first turn, and the reason is more interesting than it looks. Each window's conversation grows with every click and the whole thing is re-sent each time, so the growing prefix is a natural cache candidate. But a prefix shorter than the model's minimum simply doesn't cache — silently, with no error and `cache_creation_input_tokens: 0` — and **that minimum is not monotonic across tiers**:
+**Prompt caching** behaves very differently per model here, and not in the direction you'd guess. Each window's conversation grows with every click and the whole thing is re-sent each time, so there are two breakpoints in `lib/cache.ts`: one frozen on the system block, one rolling on the last turn. A prefix shorter than the model's minimum simply doesn't cache — silently, no error, `cache_creation_input_tokens: 0` — and **that minimum is not monotonic across tiers**: Haiku 4.5 needs **4096** tokens, Sonnet 5 needs 1024, Opus 5 needs only **512**. The cheapest model has the highest bar.
 
-| Model | Min cacheable prefix | This app's ~700-token system + tool prefix |
-| --- | --- | --- |
-| Claude Haiku 4.5 | **4096 tokens** | never caches on its own |
-| Claude Sonnet 5 | 1024 tokens | never caches on its own |
-| Claude Opus 5 | **512 tokens** | **caches from the very first turn** |
+This app's system + tool prefix is ~700 tokens, so the *frozen* breakpoint is below the floor on Haiku and Sonnet and above it only on Opus 5. What actually carries the caching is the *rolling* breakpoint on the growing transcript — and how fast that clears the floor is what separates the models. Measured over 15 clicks each ([see below](#measured-on-this-workload)):
 
-So on the default Haiku 4.5 the breakpoint on the system block never engages by itself: caching starts only once the *transcript itself* — system + tools + the accumulated renders and patches — crosses 4096 tokens, typically a few clicks into a window. On Opus 5 the fixed prefix is over the floor immediately and caches from turn one. The cheapest model has the highest bar; the most expensive has the lowest.
+| | Haiku 4.5 | Sonnet 5 | Opus 5 (adaptive) |
+| --- | --- | --- | --- |
+| Cached tokens read per click | **857** (median **0**) | 3,765 | 2,865 |
+| Uncached input tokens per click | **2,633** | 22 | 22 |
 
-Once a prefix does cache it is re-read at ~0.1× input cost, against a one-time write premium of 2× — the breakpoints in `lib/cache.ts` use the 1-hour TTL, which needs at least three reads to beat no caching at all (the 5-minute default writes at 1.25× and breaks even on the second read). A click loop refreshes the entry well inside five minutes, so the 1-hour TTL is buying very little here. The telemetry chip in each title bar reports the cached-token count for every turn, so you can watch it switch on.
+On Haiku most of the transcript is re-sent at full price on every click — the median click reads **zero** cached tokens, and caching only starts to bite late in a window. On Sonnet 5 and Opus 5 it engages within a click or two and nearly the entire prefix is cached from then on.
 
-**Model:** Claude **Haiku 4.5** (`claude-haiku-4-5`) with thinking disabled — the fastest, cheapest tier, because this is a latency-sensitive UI loop. Expect **~1.5–2 seconds per click**: a charming, slightly-laggy hallucinated OS, not a native one — every interaction is a model round trip.
+**The 1-hour TTL is the single largest cost line per click, and it is not earning it.** Cache writes bill at 2× base input on the 1h TTL versus 1.25× on the 5-minute default. Measured, cache writes are **48%** of the cost of a Sonnet 5 click and **58%** of an Opus 5 click — more than the output tokens. A click loop refreshes the entry well inside five minutes, so the 1h TTL buys almost nothing and costs ~20% of every click. Switching `lib/cache.ts` to the default TTL is a one-line change and the cheapest win available here. The telemetry chip in each title bar reports the cached-token count for every turn, so you can watch it engage.
+
+**Model:** Claude **Haiku 4.5** (`claude-haiku-4-5`) with thinking disabled — the fastest, cheapest tier, because this is a latency-sensitive UI loop. Measured on this workload: **~1.4 s per click**, but **~9 s for a window's first paint**, which is why every window opens on a "Hallucinating…" boot screen rather than an empty frame.
 
 ### Swapping the model
 
-Higher tiers draw better apps. The swap is the one `MODEL` line in `lib/claude.ts` — **except on Opus 5, where the thinking config has to change too, and the reason matters** (see the warning below).
+Higher tiers draw better apps. The swap is the one `MODEL` line in `lib/claude.ts` — **except on Opus 5, where you should change the thinking config too.**
 
 | | Haiku 4.5 | Sonnet 5 | Opus 5 |
 | --- | --- | --- | --- |
 | Model ID | `claude-haiku-4-5` | `claude-sonnet-5` | `claude-opus-5` |
-| Price in / out per Mtok | $1 / $5 | $3 / $15 <br>($2 / $10 intro thru 2026-08-31) | $5 / $25 |
+| List price in / out per Mtok | $1 / $5 | $3 / $15 <br>($2 / $10 intro thru 2026-08-31) | $5 / $25 |
 | Context | 200K | 1M | 1M |
 | Min cacheable prefix | 4096 | 1024 | 512 |
 | `effort` parameter | **rejected — errors** | `low`–`max` | `low`–`max` |
-| Thinking config for this app | `disabled` ✅ | `disabled` ✅ | **use adaptive, not `disabled`** ⚠️ |
+| Thinking config for this app | `disabled` | `disabled` | **adaptive + `effort: "low"`** |
 
-> ⚠️ **Do not just swap `MODEL` to `claude-opus-5` and leave `thinking: {type: "disabled"}` in place.** Both of this app's model calls that matter are *forced* tool calls — `apply_dom_patch` on every click and `app_results` on every search — and on Opus 5 with thinking disabled the model can write a tool call into its **visible text** instead of emitting a `tool_use` block. The request returns HTTP 200, nothing raises, `stop_reason` looks normal — and the call never runs. In this app that is indistinguishable from the empty-patch bug: you click, the busy pill spins, and the window doesn't change. The same configuration can also leak `<thinking>` tags into the visible response, which here means they render *inside the hallucinated app*. Use `thinking: {type: "adaptive"}` with `output_config: {effort: "low"}` instead — it costs less than it sounds like and removes both failure modes. (Related: on Opus 5 thinking is **on by default**, so omitting the field is not the same as disabling it, and `max_tokens` then caps thinking *plus* output — the `OPEN_MAX_TOKENS` budget in `lib/claude.ts` is sized for output alone.)
+### Measured on this workload
+
+`npm run bench` replays this app's real calls — same system prompt, same forced `apply_dom_patch` tool, same cache breakpoints as `lib/engine.ts` — against each model and prints the table below. **3 reps × (1 open + 5 clicks) per config, 15 clicks each, medians, one machine, one network path.** Latency especially will differ on yours; run it yourself rather than trusting these as universal. Cost is computed from list prices, so Sonnet's real bill is currently lower (intro pricing).
+
+| Config | Open | Per click | Out tok/click | Cached tok/click | Ops/click | **Cost/click** |
+| --- | --- | --- | --- | --- | --- | --- |
+| `claude-haiku-4-5`, thinking off *(default)* | 8.5 s | **1.1 s** | 54 | 0 | 1 | **$0.0036** |
+| `claude-sonnet-5`, thinking off | 15.0 s | 2.9 s | 83 | 3,762 | 1 | $0.0114 |
+| `claude-opus-5`, thinking off | 26.6 s | 3.7 s | 101 | 4,600 | 2 | $0.0220 |
+| `claude-opus-5`, adaptive + `effort: "low"` | 14.9 s | **2.7 s** | 84 | 3,278 | 2 | **$0.0107** |
+
+Three results worth pulling out, because two of them are backwards from the intuition:
+
+- **Opus 5 with adaptive thinking beat Sonnet 5 with thinking off on latency *and* cost** — 2.7 s vs 2.9 s per click, $0.0107 vs $0.0114 — while emitting richer patches (2 ops per click vs 1). Sonnet 5's newer tokenizer runs ~30% heavier and it wrote ~2.7× more output tokens per click here, which is enough to erase the price-per-token advantage on this workload. If you're leaving Haiku at all, Opus 5 is the better destination.
+- **Turning thinking *off* on Opus 5 made it slower and twice as expensive** — 3.7 s and $0.0220 per click, versus 2.7 s and $0.0107 with adaptive thinking at low effort. With thinking disabled it wrote roughly double the output tokens (a documented behavior: the reasoning goes into the visible response instead), and the first paint took **26.6 s against 14.9 s**. The naive swap is the worst of the four configurations on every axis.
+- **Haiku is 3× cheaper per click than anything else and 2× faster**, and that gap is mostly the caching floor rather than the sticker price: 2,633 of Haiku's input tokens per click are uncached, against 22 on the other two.
+
+One real failure showed up in the sweep: on Opus 5 with thinking disabled, some patch turns stopped on `max_tokens` — which in the real app raises `TruncatedResponseError` and surfaces as the "Model unavailable" banner. None of the other three configurations hit it. `max_tokens` here is 4096, sized for output alone.
+
+> ⚠️ **On Opus 5, use `thinking: {type: "adaptive"}` with `output_config: {effort: "low"}` rather than `disabled`.** Besides being faster and half the price (above), thinking-disabled on Opus 5 carries a documented failure mode this app is unusually exposed to: both calls that matter are *forced* tool calls (`apply_dom_patch` per click, `app_results` per search), and with thinking off the model can write a tool call into its **visible text** instead of emitting a `tool_use` block — HTTP 200, no error, normal-looking `stop_reason`, and the call never runs. [`lib/engine.ts`](lib/engine.ts) would return `ops: []` and the click would silently do nothing. **We did not reproduce this in 15 patch turns** — 0 missing `tool_use` blocks, 0 stray text — so treat it as a documented risk we could not trigger, not something you should expect to see. The `max_tokens` truncation above, we did see.
 >
-> `thinking: {type: "disabled"}` on Opus 5 is also only accepted at `effort` `high` or below — pairing it with `xhigh`/`max` is a 400.
+> Two related facts: on Opus 5 thinking is **on by default**, so omitting the field is not the same as disabling it, and `max_tokens` then caps thinking *plus* output. And `thinking: {type: "disabled"}` is only accepted at `effort` `high` or below — pairing it with `xhigh`/`max` is a 400.
 
-Two smaller gotchas when you swap: `effort` is **rejected outright on Haiku 4.5**, so it can't be set uniformly across models; and Sonnet 5 uses a newer tokenizer that produces roughly 30% more tokens for the same text, so its cost per click isn't simply its price ratio against Haiku.
+One more gotcha when you swap: `effort` is **rejected outright on Haiku 4.5**, so it cannot be set uniformly across models — the benchmark harness shapes the request per model for exactly this reason.
 
 ---
 
@@ -194,8 +214,8 @@ docs/superpowers/              the specs and implementation plans this was built
 
 ## Honest limitations (by design)
 
-- **It's slow-ish.** ~1.5–2s per click on Haiku — a model round trip every time (see [Swapping the model](#swapping-the-model) for higher fidelity, and read the Opus 5 warning there before you do). Great for a demo, not a daily driver.
-- **No published per-model latency numbers here.** Latency for this workload is dominated by your network path, region, and time of day, so a single measurement from one machine wouldn't generalize — and inventing a table would be worse than having none. The telemetry chip in each title bar is the honest measurement: it reports the real round-trip time and cached-token count for every click on *your* connection, which is the number that actually applies to you.
+- **It's slow-ish, and the first paint is the slow part.** ~1.1 s per click on Haiku, but ~8.5 s to open a window — a model round trip every time, and the opening one writes a whole screen of HTML. See [Measured on this workload](#measured-on-this-workload) for the other models. Great for a demo, not a daily driver.
+- **Those numbers are one machine on one network.** Latency here depends on your route to the API and the time of day, so treat the table as a shape (Haiku ≈ 3× cheaper, opens ≈ 6× slower than clicks) rather than as constants. `npm run bench` reruns it on your connection, and the telemetry chip in each title bar reports the real per-click number as you use it.
 - **It hallucinates.** Apps are plausible, not correct. The calculator can be wrong; the "facts" in a hallucinated browser are invented. That's the whole joke.
 - **State drifts.** Over a long session the model's idea of the window can drift from what's on screen; the app periodically re-syncs the real DOM back to the model to correct it, and reseeds the transcript from that snapshot so a long-lived window doesn't walk into the context limit.
 - **Single-user, local, ephemeral.** No accounts, no persistence, no multi-user. Run it with your own key and have fun.
@@ -207,6 +227,17 @@ npm test             # vitest — unit (lib), route (mocked SDK), and component 
 npx tsc --noEmit     # typecheck
 npm run build        # production build; emits .next/standalone/server.js
 ```
+
+No test in the suite calls the real API — `lib/claude.ts` is mocked everywhere, so the whole suite runs offline and CI needs no key.
+
+## Benchmark
+
+```bash
+npm run bench                                  # all 4 configs × 3 reps — costs real money
+BENCH_REPS=1 BENCH_CONFIGS=haiku npm run bench # ~$0.02 smoke run
+```
+
+`scripts/bench.ts` replays this app's actual calls (same prompt, same forced tool, same cache breakpoints as `lib/engine.ts`) across the models and prints the table in [Measured on this workload](#measured-on-this-workload), writing every per-call sample to `bench-results.json`. It clicks real element ids parsed out of the model's own HTML, the way the host does, and records three things the app itself cannot currently tell apart when a click appears to do nothing: a missing `tool_use` block, a well-formed patch containing zero ops, and stray visible text on a patch turn. It reads `ANTHROPIC_API_KEY` from `.env` / `.env.local`.
 
 ---
 
